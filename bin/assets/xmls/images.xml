@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<data>
+	<image description="" type="2">
+		<xml>assets/images/sprites.xml</xml>
+		<image>assets/images/sprites.png</image>
+	</image>
+	 <!--<image description="" type="1" repeat="true">assets/images/bg.png</image>-->
+	<!-- XMLs -->
+	<image description="" type="1">assets/xmls/configs.xml</image>
+</data>
