@@ -222,6 +222,14 @@ package elements {
 		}
 		
 		private function checkMatch():void {
+			if (colorBomb) {
+				board.findMatches.matchPiecesOfColor(otherPiece.tag);
+				isMatched = true;
+			} else if (otherPiece.isColorBomb()) {
+				board.findMatches.matchPiecesOfColor(tag);
+				otherPiece.isMatched = true;
+			}
+			
 			Starling.juggler.delayCall(function():void {
 				if (otherPiece) {
 					if (!isMatched && !otherPiece.isMatched) {

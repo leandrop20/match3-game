@@ -2,6 +2,7 @@ package elements {
 	import entities.Level;
 	import enums.GameState;
 	import flash.geom.Point;
+	import screens.Game;
 	import starling.core.Starling;
 	import starling.display.Sprite;
 	import utils.ArrayUtil;
@@ -62,18 +63,17 @@ package elements {
 			allPieces = ArrayUtil.instance(cols, rows, null);
 			blankSpaces = ArrayUtil.instance(cols, rows, false);
 			
-			create();
+			createBg();
+			createPieces();
 		}
 		
-		private function create():void {
+		private function createBg():void {
 			ArrayUtil.loop(cols, rows, function(i:int, j:int):void {
 				if (!blankSpaces[i][j]) {
 					var tilePosition:Point = new Point(i, j);
 					
 					var bgTile:BgTile = new BgTile(tilePosition);
 					bgContainer.addChild(bgTile);
-					
-					createPiece(i, j);
 				}
 			});
 			
@@ -81,6 +81,15 @@ package elements {
 			scaleX  = scaleY = Main.SIZE.x / width;
 			x = Main.SIZE.x * 0.5;
 			y = Main.SIZE.y * 0.5;
+		}
+		
+		private function createPieces():void {
+			ArrayUtil.loop(cols, rows, function(i:int, j:int):void {
+				if (!blankSpaces[i][j]) {
+					var tilePosition:Point = new Point(i, j);					
+					createPiece(i, j);
+				}
+			});
 		}
 		
 		private function createPiece(i:int, j:int):void {

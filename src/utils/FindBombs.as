@@ -55,7 +55,7 @@ package utils {
 						rowMatch++;
 					}
 				}
-			
+				
 				if (columnMatch == 4 || rowMatch == 4) {
 					matchType.type = TypeOfMatch.COLOR_BOMB;
 					matchType.color = color;
