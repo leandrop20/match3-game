@@ -1,7 +1,9 @@
 package elements {
 	import entities.Level;
 	import enums.GameState;
+	import enums.TileKind;
 	import flash.geom.Point;
+	import managers.TileManager;
 	import screens.Game;
 	import starling.core.Starling;
 	import starling.display.Sprite;
@@ -17,12 +19,13 @@ package elements {
 		public static var currentState:GameState;
 		/** objects */
 		private var bgContainer:Sprite;
+		private var piecesContainer:Sprite;
+		public var tileManager:TileManager;
 		public var findMatches:FindMatches;
 		private var findBombs:FindBombs;
 		private var pieces:Array;
 		private var allPieces:Array;
 		private var boardLayout:Array;
-		private var blankSpaces:Array;
 		/** consts */
 		private const OFFSET:int = 0;
 		private const REFILL_DELAY:Number = 0.5;
@@ -35,6 +38,12 @@ package elements {
 		public function Board() {
 			bgContainer = new Sprite();
 			addChild(bgContainer);
+			
+			piecesContainer = new Sprite();
+			addChild(piecesContainer);
+			
+			tileManager = new TileManager(this);
+			addChild(tileManager);
 			
 			findMatches = new FindMatches(this);
 			findBombs = new FindBombs(this, findMatches);
@@ -61,15 +70,16 @@ package elements {
 			boardLayout = level.boardLayout;
 			
 			allPieces = ArrayUtil.instance(cols, rows, null);
-			blankSpaces = ArrayUtil.instance(cols, rows, false);
+			tileManager.init(cols, rows);
 			
+			tileManager.create(boardLayout);
 			createBg();
 			createPieces();
 		}
 		
 		private function createBg():void {
 			ArrayUtil.loop(cols, rows, function(i:int, j:int):void {
-				if (!blankSpaces[i][j]) {
+				if (!tileManager.isBlankSpace(i, j)) {
 					var tilePosition:Point = new Point(i, j);
 					
 					var bgTile:BgTile = new BgTile(tilePosition);
@@ -85,9 +95,11 @@ package elements {
 		
 		private function createPieces():void {
 			ArrayUtil.loop(cols, rows, function(i:int, j:int):void {
-				if (!blankSpaces[i][j]) {
-					var tilePosition:Point = new Point(i, j);					
-					createPiece(i, j);
+				if (!tileManager.isBlankSpace(i, j)) {
+					var tilePosition:Point = new Point(i, j);
+					if (tileManager.isNotConcreteAndSlime(i, j)) {
+						createPiece(i, j);
+					}
 				}
 			});
 		}
@@ -105,7 +117,7 @@ package elements {
 			var tempPosition:Point = new Point(i, j - (OFFSET + 5));
 			
 			var piece:Piece = new Piece(pieces[pieceToUse], tempPosition, this);
-			addChild(piece);
+			piecesContainer.addChild(piece);
 			
 			piece.setColAndRow(i, j);
 			setPiece(i, j, piece);
@@ -168,9 +180,17 @@ package elements {
 		private function destroyMatchesAt(col:int, row:int):void {
 			var piece:Piece = getPiece(col, row);
 			if (piece && piece.isMatched) {
-				piece.kill();
-				setPiece(col, row, null);
+				if (tileManager.hasLockTile(col, row)) {
+					piece.isMatched = false;
+				} else {
+					piece.kill();
+					setPiece(col, row, null);
+				}
+				
+				tileManager.damageTile(col, row, TileKind.ICE);
+				tileManager.damageTile(col, row, TileKind.LOCK);
 			} else if (piece.wasTurned) {
+				tileManager.damageTile(col, row, TileKind.ICE);
 				piece.wasTurned = false;
 			}
 		}
@@ -179,10 +199,11 @@ package elements {
 			Starling.juggler.delayCall(function():void {
 				ArrayUtil.loop(cols, rows, function(i:int, j:int):void {
 					j = rows - j - 1;
-					if (!getPiece(i, j) && !blankSpaces[i][j]) {
+					if (!getPiece(i, j) && !tileManager.isBlankSpace(i, j) &&
+							tileManager.isNotConcreteAndSlime(i, j) && !tileManager.getLockTile(i, j)) {
 						for (var k:int = j - 1; k > -1; k--) {
 							var piece:Piece = getPiece(i, k);
-							if (piece) {
+							if (piece && !tileManager.getLockTile(i, k)) {
 								piece.setRow(j);
 								setPiece(i, k, null);
 								break;
@@ -201,10 +222,12 @@ package elements {
 				while (matchesOnBoard()) {
 					streakValue = 1;
 					destroyMatches();
-					break;
+					return;
 				}
 				
 				currentPiece = null;
+				
+				tileManager.checkToMakeSlime();
 				
 				if (isDeadLocked() && currentState != GameState.WIN && currentState != GameState.LOSE) {
 					shuffleBoard();
@@ -215,6 +238,7 @@ package elements {
 							currentState != GameState.LOSE) {
 						currentState = GameState.MOVE;
 					}
+					tileManager.makeSlime = true;
 					streakValue = 1;
 				}, 0.1);
 			}, REFILL_DELAY);
@@ -222,7 +246,8 @@ package elements {
 		
 		private function refillBoard():void {
 			ArrayUtil.loop(cols, rows, function(i:int, j:int):void {
-				if (!getPiece(i, j) && !blankSpaces[i][j]) {
+				if (!getPiece(i, j) && !tileManager.isBlankSpace(i, j) && 
+						tileManager.isNotConcreteAndSlime(i, j)) {
 					createPiece(i, j);
 				}
 			});
@@ -262,22 +287,27 @@ package elements {
 		}
 		
 		private function switchAndCheck(col:int, row:int, direction:Point):Array {
-			switchPieces(col, row, direction);
-			var possible:Array = checkForMatches();
-			if (possible) {
+			if (switchPieces(col, row, direction)) {
+				var possible:Array = checkForMatches();
+				if (possible) {
+					switchPieces(col, row, direction);
+					return possible;
+				}
 				switchPieces(col, row, direction);
-				return possible;
 			}
-			switchPieces(col, row, direction);
 			return null;
 		}
 		
-		private function switchPieces(col:int, row:int, direction:Point):void {
+		private function switchPieces(col:int, row:int, direction:Point):Boolean {
 			var piece:Piece = getPiece(col + direction.x, row + direction.y);
 			if (piece) {
-				setPiece(col + direction.x, row + direction.y, getPiece(col, row));
-				setPiece(col, row, piece);
+				if (!tileManager.hasLockTile(col + direction.x, row + direction.y) &&
+						!tileManager.hasLockTile(col, row)) {
+					setPiece(col + direction.x, row + direction.y, getPiece(col, row));
+					setPiece(col, row, piece);
+				}
 			}
+			return false;
 		}
 		
 		private function checkForMatches():Array {
@@ -331,7 +361,7 @@ package elements {
 				Starling.juggler.delayCall(function():void {
 					for (var i:int = 0; i < cols; i++) {
 						for (var j:int = 0; j < rows; j++) {
-							if (!blankSpaces[i][j]) {
+							if (!tileManager.isBlankSpace(i, j) && tileManager.isNotConcreteAndSlime(i, j)) {
 								var pieceToUse:int = Math.random() * newBoard.length;
 								
 								var maxIterations:int = 0;

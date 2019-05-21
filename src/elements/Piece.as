@@ -205,17 +205,22 @@ package elements {
 			previousCol = col;
 			previousRow = row;
 			
-			if (otherPiece) {
-				isManualMoving = true;
-				otherPiece.isManualMoving = true;
-				
-				otherPiece.setColAndRow(
-					otherPiece.getCol() + ( -1 * direction.x),
-					otherPiece.getRow() - ( -1 * direction.y));
+			if (!board.tileManager.getLockTile(col, row) && 
+					!board.tileManager.getLockTile(col + direction.x, row + direction.y)) {
+				if (otherPiece) {
+					isManualMoving = true;
+					otherPiece.isManualMoving = true;
 					
-				setColAndRow(col + direction.x, row - direction.y);
-				
-				checkMatch();
+					otherPiece.setColAndRow(
+						otherPiece.getCol() + ( -1 * direction.x),
+						otherPiece.getRow() - ( -1 * direction.y));
+						
+					setColAndRow(col + direction.x, row - direction.y);
+					
+					checkMatch();
+				} else {
+					Board.currentState = GameState.MOVE;
+				}
 			} else {
 				Board.currentState = GameState.MOVE;
 			}
@@ -257,8 +262,8 @@ package elements {
 		
 		public function kill():void {
 			events("remove");
-			Starling.juggler.tween(this, 0.3, { scaleX:0.0, scaleY:0.0, transition:Transitions.EASE_IN_BACK,
-				onComplete:destroy });
+			Starling.juggler.tween(this, 0.3, { scaleX:1.5, scaleY:1.5, alpha:0.0, 
+				transition:Transitions.EASE_IN_BACK, onComplete:destroy });
 		}
 		
 		public function makeRowBomb(isBooster:Boolean = false):void {
@@ -290,13 +295,8 @@ package elements {
 			if (!columnBomb && !rowBomb && !colorBomb) {
 				adjacentBomb = true;
 				wasTurned = true;
-				adjacentBombObj = new Image(Root.assets.getTextureAtlas("sprites")
-					.getTexture("adjacentBomb.png"));
-				adjacentBombObj.alignPivot();
-				adjacentBombObj.scaleX = adjacentBombObj.scaleY = 1.4;
-				addChildAt(adjacentBombObj, getChildIndex(icon));
-				Starling.juggler.tween(adjacentBombObj, 0.3, { scaleX:2.0, scaleY:2.0, reverse:true, 
-					repeatCount:0 });
+				Starling.juggler.tween(this, 0.3, { scaleX:1.08, scaleY:1.08, reverse:true, 
+					repeatCount:0, transition:Transitions.EASE_IN_OUT });
 			}
 		}
 		
